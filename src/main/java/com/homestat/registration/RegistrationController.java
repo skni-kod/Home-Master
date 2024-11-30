@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class RegistrationController {
     private final UserService userService;
     private final ApplicationEventPublisher publisher;
-    private final VerificationTokenRespository tokenRespository;
+//    private final VerificationTokenRespository tokenRespository;
 
     @PostMapping
     public String registerUser(@RequestBody RegistrationRequest registrationRequest, final HttpServletRequest request) {
@@ -32,7 +32,9 @@ public class RegistrationController {
         return "Success! Please, check your email for verification link";
     }
 
-    private String applicationUrl(HttpServletRequest request) {
+    String applicationUrl(HttpServletRequest request) {
         return "http://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath();
     }
+
+    //TODO: email verification
 }
