@@ -1,8 +1,6 @@
 package com.homestat.user;
 
 import com.homestat.registration.RegistrationRequest;
-import io.swagger.v3.oas.annotations.parameters.RequestBody;
-import jakarta.servlet.http.HttpServletRequest;
 
 import java.util.List;
 import java.util.Optional;
@@ -15,4 +13,8 @@ public interface IUserService {
     Optional<User> findByEmail(String email);
 
     void saveUserVerificationToken(User theUser, String verificationToken);
+
+    String validateToken(String theToken);
+
+    String deleteToken(String theToken);
 }

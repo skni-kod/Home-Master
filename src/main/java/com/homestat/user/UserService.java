@@ -1,11 +1,10 @@
 package com.homestat.user;
 
+import com.homestat.exception.TokenNotExistsException;
 import com.homestat.exception.UserAlreadyExistsException;
 import com.homestat.registration.RegistrationRequest;
 import com.homestat.registration.token.VerificationToken;
 import com.homestat.registration.token.VerificationTokenRespository;
-import io.swagger.v3.oas.annotations.parameters.RequestBody;
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -57,5 +56,27 @@ public class UserService implements IUserService {
     public void saveUserVerificationToken(User theUser, String token) {
         var verificationToken = new VerificationToken(token, theUser);
         tokenRespository.save(verificationToken);
+    }
+
+    @Override
+    public String validateToken(String theToken) {
+        if(theToken == null || theToken.isEmpty()) {
+            throw new TokenNotExistsException("Token is null or empty");
+        }
+        VerificationToken token = tokenRespository.findByToken(theToken);
+        User user = token.getUser();
+        user.setEnabled(true);
+        userRepository.save(user);
+        return "valid";
+    }
+
+    @Override
+    public String deleteToken(String theToken) {
+        VerificationToken token = tokenRespository.findByToken(theToken);
+        if(theToken == null || theToken.isEmpty()) {
+            throw new TokenNotExistsException("Token is null or empty");
+        }
+        tokenRespository.delete(token);
+        return "Token deleted";
     }
 }
