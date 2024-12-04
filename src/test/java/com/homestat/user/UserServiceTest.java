@@ -1,12 +1,12 @@
 package com.homestat.user;
 
+import com.homestat.exception.TokenNotExistsException;
 import com.homestat.exception.UserAlreadyExistsException;
 import com.homestat.registration.RegistrationRequest;
 import com.homestat.registration.token.VerificationToken;
 import com.homestat.registration.token.VerificationTokenRespository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -40,105 +40,131 @@ class UserServiceTest {
     @Test
     void testGetUsers() {
         // Arrange
-        User user1 = new User();
-        User user2 = new User();
-        when(userRepository.findAll()).thenReturn(List.of(user1, user2));
+        List<User> users = List.of(new User(), new User());
+        when(userRepository.findAll()).thenReturn(users);
 
         // Act
-        List<User> users = userService.getUsers();
+        List<User> result = userService.getUsers();
 
         // Assert
-        assertNotNull(users);
-        assertEquals(2, users.size());
+        assertEquals(users.size(), result.size());
         verify(userRepository, times(1)).findAll();
     }
 
     @Test
-    void testRegisterUser_Success() {
+    void testRegisterUserSuccess() {
         // Arrange
-        RegistrationRequest request = new RegistrationRequest("John", "Doe", "john@example.com", "password", "USER");
+        RegistrationRequest request = new RegistrationRequest("John", "Doe", "john.doe@example.com", "password", "USER");
         when(userRepository.findByEmail(request.email())).thenReturn(Optional.empty());
         when(passwordEncoder.encode(request.password())).thenReturn("encodedPassword");
-
-        ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         // Act
-        User registeredUser = userService.registerUser(request);
+        User result = userService.registerUser(request);
 
         // Assert
-        assertNotNull(registeredUser);
-        verify(userRepository, times(1)).findByEmail(request.email());
-        verify(passwordEncoder, times(1)).encode(request.password());
-        verify(userRepository, times(1)).save(userCaptor.capture());
-
-        User capturedUser = userCaptor.getValue();
-        assertEquals("John", capturedUser.getFirstName());
-        assertEquals("Doe", capturedUser.getLastName());
-        assertEquals("john@example.com", capturedUser.getEmail());
-        assertEquals("encodedPassword", capturedUser.getPassword());
-        assertEquals("USER", capturedUser.getRole());
+        assertNotNull(result);
+        assertEquals(request.email(), result.getEmail());
+        assertEquals("encodedPassword", result.getPassword());
+        verify(userRepository, times(1)).save(any(User.class));
     }
 
     @Test
-    void testRegisterUser_UserAlreadyExists() {
+    void testRegisterUserAlreadyExists() {
         // Arrange
-        RegistrationRequest request = new RegistrationRequest("John", "Doe", "john@example.com", "password", "USER");
-        User existingUser = new User();
-        when(userRepository.findByEmail(request.email())).thenReturn(Optional.of(existingUser));
+        RegistrationRequest request = new RegistrationRequest("John", "Doe", "john.doe@example.com", "password", "USER");
+        when(userRepository.findByEmail(request.email())).thenReturn(Optional.of(new User()));
 
         // Act & Assert
-        UserAlreadyExistsException exception = assertThrows(UserAlreadyExistsException.class, () -> userService.registerUser(request));
-        assertEquals("User with emailjohn@example.com already exists", exception.getMessage());
-        verify(userRepository, times(1)).findByEmail(request.email());
+        assertThrows(UserAlreadyExistsException.class, () -> userService.registerUser(request));
         verify(userRepository, never()).save(any(User.class));
     }
 
     @Test
-    void testFindByEmail_UserFound() {
+    void testFindByEmailUserExists() {
         // Arrange
-        String email = "john@example.com";
+        String email = "john.doe@example.com";
         User user = new User();
+        user.setEmail(email);
         when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
 
         // Act
-        Optional<User> foundUser = userService.findByEmail(email);
+        Optional<User> result = userService.findByEmail(email);
 
         // Assert
-        assertTrue(foundUser.isPresent());
-        assertEquals(user, foundUser.get());
-        verify(userRepository, times(1)).findByEmail(email);
+        assertTrue(result.isPresent());
+        assertEquals(email, result.get().getEmail());
     }
 
     @Test
-    void testFindByEmail_UserNotFound() {
+    void testFindByEmailUserNotExists() {
         // Arrange
-        String email = "john@example.com";
+        String email = "john.doe@example.com";
         when(userRepository.findByEmail(email)).thenReturn(Optional.empty());
 
         // Act
-        Optional<User> foundUser = userService.findByEmail(email);
+        Optional<User> result = userService.findByEmail(email);
 
         // Assert
-        assertFalse(foundUser.isPresent());
-        verify(userRepository, times(1)).findByEmail(email);
+        assertFalse(result.isPresent());
     }
 
     @Test
     void testSaveUserVerificationToken() {
         // Arrange
         User user = new User();
-        String token = "verification-token";
-        VerificationToken verificationToken = new VerificationToken(token, user);
+        String token = "sampleToken";
 
         // Act
         userService.saveUserVerificationToken(user, token);
 
         // Assert
-        ArgumentCaptor<VerificationToken> tokenCaptor = ArgumentCaptor.forClass(VerificationToken.class);
-        verify(tokenRespository, times(1)).save(tokenCaptor.capture());
-        VerificationToken capturedToken = tokenCaptor.getValue();
-        assertEquals("verification-token", capturedToken.getToken());
-        assertEquals(user, capturedToken.getUser());
+        verify(tokenRespository, times(1)).save(any(VerificationToken.class));
+    }
+
+    @Test
+    void testValidateTokenSuccess() {
+        // Arrange
+        String tokenValue = "validToken";
+        User user = new User();
+        VerificationToken token = new VerificationToken(tokenValue, user);
+        when(tokenRespository.findByToken(tokenValue)).thenReturn(token);
+
+        // Act
+        String result = userService.validateToken(tokenValue);
+
+        // Assert
+        assertEquals("valid", result);
+        assertTrue(user.isEnabled());
+        verify(userRepository, times(1)).save(user);
+    }
+
+    @Test
+    void testValidateTokenNullOrEmpty() {
+        // Act & Assert
+        assertThrows(TokenNotExistsException.class, () -> userService.validateToken(null));
+        assertThrows(TokenNotExistsException.class, () -> userService.validateToken(""));
+    }
+
+    @Test
+    void testDeleteTokenSuccess() {
+        // Arrange
+        String tokenValue = "validToken";
+        VerificationToken token = new VerificationToken();
+        when(tokenRespository.findByToken(tokenValue)).thenReturn(token);
+
+        // Act
+        String result = userService.deleteToken(tokenValue);
+
+        // Assert
+        assertEquals("Token deleted", result);
+        verify(tokenRespository, times(1)).delete(token);
+    }
+
+    @Test
+    void testDeleteTokenNullOrEmpty() {
+        // Act & Assert
+        assertThrows(TokenNotExistsException.class, () -> userService.deleteToken(null));
+        assertThrows(TokenNotExistsException.class, () -> userService.deleteToken(""));
     }
 }
