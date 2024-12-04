@@ -11,3 +11,16 @@ spring:
       ddl-auto: update
     show-sql: true
     open-in-view: true
+#  mail:
+#    host: ${SMTP_HOST}
+#    port: ${SMTP_PORT}
+#    username: ${SMTP_USERNAME}  # Replace with your Mailtrap username
+#    password: ${SMTP_PASSWORD}  # Replace with your Mailtrap password
+#    properties:
+#      mail:
+#        smtp:
+#          auth: true
+#          starttls:
+#            enable: true
+#            required: true
+#          debug: true
